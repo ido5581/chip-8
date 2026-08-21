@@ -211,9 +211,26 @@ void emulate_cycle(chip_t* chip){
             uint16_t x_pos = chip->V[x_reg] % 64;
             uint16_t y_pos = chip->V[y_reg] % 32;
             chip->V[0xF] = 0;
+            for(int row = 0; row < n; row++){
+                uint8_t sprite_byte = chip->RAM[chip->I + row];
+                for(int col = 0; col < 8; col++){
+                    if((sprite_byte & (0x80 >> col)) != 0){
+                        int screen_x = x_pos + col;
+                        int screen_y = y_pos + row;
+                        if(screen_x < 64 && screen_y < 32){
+                            if(chip->grid[screen_y * 64 + screen_x] == 1){
+                                chip->V[0xF] = 1;
+                            }
+                            chip->grid[screen_y * 64 + screen_x] ^= 1;
+                        }
+                    }
+                }
+            }
+            break;
         }
 
         case 0xE000:
+
 
         case 0xF000:
 
