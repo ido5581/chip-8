@@ -175,18 +175,43 @@ void emulate_cycle(chip_t* chip){
             break;
         }
 
+        case 0x9000:{
+            uint8_t x_reg = (opcode & 0x0F00) >> 8;
+            uint16_t y_reg = (opcode & 0x00F0) >> 4;
+            if ((opcode & 0x000F) == 0){
+                if(chip->V[x_reg] != chip->V[y_reg]){
+                    chip->PC += 2;
+                }
+            }
+            break;
+        }
 
-           
+        case 0xA000:{
+            chip->I = (opcode & 0xFFF);
+            break;
+        }
 
-        case 0x9000://skip
+        case 0xB000:{
+            chip->PC = chip->V[0] + (opcode & 0x0FFF);
+            break;
+        }
 
-        case 0xA000:
+        case 0xC000:{
+            int random_byte = (rand() % 256);
+            uint8_t x_reg = (opcode & 0x0F00) >> 8;
+            chip->V[x_reg] = random_byte & (opcode & 0x00FF);
+            break;
+        }
 
-        case 0xB000:
+        case 0xD000:{
+            uint8_t x_reg = (opcode & 0x0F00) >> 8;
+            uint16_t y_reg = (opcode & 0x00F0) >> 4;
+            uint16_t n = opcode & 0x000F;
 
-        case 0xC000:
-
-        case 0xD000:
+            uint16_t x_pos = chip->V[x_reg] % 64;
+            uint16_t y_pos = chip->V[y_reg] % 32;
+            chip->V[0xF] = 0;
+        }
 
         case 0xE000:
 

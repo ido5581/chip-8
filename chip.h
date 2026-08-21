@@ -1,6 +1,7 @@
 #ifndef __CHIP__
 #define __CHIP__
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
 
