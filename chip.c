@@ -3,10 +3,28 @@
 
 #define FILESIZE 3584
 
+uint8_t fontset[80] = {
+    0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+    0x20, 0x60, 0x20, 0x20, 0x70, // 1
+    0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+    0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+    0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+    0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+    0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+    0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+    0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+    0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+    0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+    0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+    0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+    0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+    0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+    0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+};
 void chip_init(chip_t* chip){
     chip->PC = 512; // 0x200 in the RAM
     memset(chip->RAM, 0, sizeof(chip->RAM));
-    memset(chip->V, 0, sizeof(chip->Vx));
+    memset(chip->V, 0, sizeof(chip->V));
     chip->I = 0;
     chip->delay = 0;
     chip->sound = 0;
@@ -14,11 +32,14 @@ void chip_init(chip_t* chip){
     memset(chip->stack, 0, sizeof(chip->stack));
     memset(chip->keypad, 0, sizeof(chip->keypad));
     memset(chip->grid, 0, sizeof(chip->grid));
+    for(int i = 0; i < 80; i++){
+        chip->RAM[80 + i] = fontset[i];
+    }
 }
 
 bool load_ROM(chip_t* chip, const char* filename){
     if(filename == NULL)
-        return false;
+    return false;
     FILE * rom_file = fopen(filename, "rb");
     if(rom_file == NULL)
         return false;
@@ -48,7 +69,7 @@ void emulate_cycle(chip_t* chip){
     opcode = temp1 | temp2;
     chip->PC = chip->PC+2;
 
-    //Decode
+    //Decode & execute
     
     switch (opcode & 0xF000)//extracting the right most Byte
     {
@@ -60,6 +81,7 @@ void emulate_cycle(chip_t* chip){
                 chip->PC = chip->stack[chip->stack_pointer];
             }
             else if (mask == 0x00E0){
+                memset(chip->grid, 0, sizeof(chip->grid));  
 
             }
             break;
@@ -94,7 +116,13 @@ void emulate_cycle(chip_t* chip){
             break;
         }//SE - skip next instruction if something
 
-        case 0x5000:{}//SE - skip next instruction if something
+        case 0x5000:{
+            uint8_t x_reg = (opcode & 0x0F00) >> 8;
+            uint8_t y_reg = (opcode & 0x00F0) >> 4;
+            if(chip->V[x_reg] == chip->V[y_reg])
+                chip->PC +=2;
+            break;
+        }//SE - skip next instruction if something
 
         case 0x6000:{//LD set Vx = 2 right bytes
             uint8_t reg = (opcode & 0x0F00) >> 8;
@@ -229,16 +257,80 @@ void emulate_cycle(chip_t* chip){
             break;
         }
 
-        case 0xE000:
+        case 0xE000:{
+            uint8_t x_reg = (opcode & 0x0F00) >> 8;
+            if((opcode & 0x00FF) == 0x009E){
+                if(chip->keypad[chip->V[x_reg]] == true){
+                    chip->PC +=2;
+                }
+            }
+            else if((opcode & 0x00FF) == 0x00A1){
+                if(chip->keypad[chip->V[x_reg]] == false){
+                    chip->PC +=2;
+                }
+            }
+            break;
+        }
 
+        case 0xF000:{
+            uint8_t x_reg = (opcode & 0x0F00) >> 8;
+            if((opcode & 0x00FF) == 0x0007){
+                chip->V[x_reg] = chip->delay;
+            }
+            else if(((opcode & 0x00FF) == 0x000A)){
+                bool is_pressed = false;
+                for(int i =0; i < 16; i++){
+                    if(chip->keypad[i] == true){
+                        chip->V[x_reg] = i;
+                        is_pressed = true;
+                        break;
+                    }
+                }
+                if(is_pressed == false){
+                    chip->PC -= 2;
+                }
+            }
 
-        case 0xF000:
+            else if(((opcode & 0x00FF) == 0x0015)){
+                chip->delay = chip->V[x_reg];
+            }
+            else if(((opcode & 0x00FF) == 0x0018)){
+                chip->sound = chip->V[x_reg];
+            }
+            else if(((opcode & 0x00FF) == 0x001E)){
+                chip->I += chip->V[x_reg];
+            }
+            else if (((opcode & 0x00FF) == 0x0029)){
+                uint8_t hex = chip->V[x_reg];
+                chip->I = 0x0050 +(5 * hex);
+            }
+            else if (((opcode & 0x00FF) == 0x0033)){
+                uint8_t VX_value = chip->V[x_reg];
+                chip->RAM[chip->I] = VX_value / 100;                 
+                chip->RAM[chip->I + 1] = (VX_value / 10) % 10;       
+                chip->RAM[chip->I + 2] = VX_value % 10;
+            }
+            else if (((opcode & 0x00FF) == 0x0055)){
+                for(int i = 0; i <= x_reg; i++){
+                    chip->RAM[chip->I + i] = chip->V[i];
+                }
+            }
+            else if ((opcode & 0x00FF) == 0x0065){
+                for(int i = 0; i <= x_reg; i++){
+                    chip->V[i] = chip->RAM[chip->I + i];
+                }
+            }
+
+            break;
+        }
+
 
 
 
         
-        default:
+        default:{
             printf("Error in opcode\n");
             break;
+        }
     }
 }
