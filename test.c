@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
     SDL_Event e;
 
     while (!quit) {
-        // 1. קליטת קלט מהמקלדת ואירועי חלון
+       
         while (SDL_PollEvent(&e) != 0) {
             if (e.type == SDL_QUIT) {
                 quit = true;
@@ -66,12 +66,12 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        // 2. הרצת מספר פקודות מעבד בפריים אחד
+      
         for (int i = 0; i < CYCLES_PER_FRAME; i++) {
             emulate_cycle(&chip);
         }
 
-        // 3. עדכון טיימרים בקצב 60Hz
+      
         if (chip.delay > 0) {
             chip.delay--;
         }
@@ -79,7 +79,7 @@ int main(int argc, char* argv[]) {
             chip.sound--;
         }
 
-        // 4. ציור המסך
+        
         SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
         SDL_RenderClear(renderer);
 
@@ -95,7 +95,7 @@ int main(int argc, char* argv[]) {
 
         SDL_RenderPresent(renderer);
 
-        // השהייה שתסנכרן את הלולאה ל-~60 פרימים בשנייה (16ms)
+        
         SDL_Delay(16);
     }
 
